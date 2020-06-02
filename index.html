@@ -1,0 +1,191 @@
+<html lang="en" ng-app="kitchensink">
+  <head>
+    <meta charset="utf-8">
+
+    <title>Interactive Kriging demo by Exequiel Sepúlveda</title>
+
+    <style>
+      pre { margin-left: 15px !important }
+    </style>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://d3js.org/d3-scale.v2.min.js"></script>
+
+    <script src="fabric.min.js"></script>
+    <script src="krige.js"></script>
+    <script src="gauss.js"></script>
+    <script src="calc.js"></script>
+
+    <script>
+
+    $(document).ready(function () {
+    //canvas
+    canvas = new fabric.Canvas('canvas');
+    canvas.setHeight(height);
+    canvas.setWidth(width);
+
+    mainlocation = add_point('center',get_absolute_x(0),get_absolute_y(0),true);
+
+    canvas.add(mainlocation);
+
+
+    canvas.renderAll();
+
+    });
+    </script>
+
+  </head>
+<body>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-xl-12">
+      <h1>Instructions</h1>
+      <p>
+        This interactive demo shows the Kriging system and its solution based on
+        N samples in two-dimensions. The central location, which is located
+        at the middle point on the plane (0,0), will be estimated.
+        The cartesian plane has limits between -100.0 and 100.0
+        in both x and y. I will improve the display of the plane soon.
+      </p>
+      <p>
+        You can generate from 2 to 6 samples. Move any sample around the plane and see the changes on distances,
+        kriging (ordinary) system, weights, estimated value and kriging variance.
+      </p>
+      <p>
+        Number of sample points to generate (between 2 and 6):
+      </p>
+      <p>
+        <input type="range" name="points" id="points"  min="2" max="6">
+      </p>
+      <p>
+        Minimum and maximum value from uniform distribution:
+      </p>
+      <p>
+        <input type="number" name="min_val" min="0" max="10" step="0.5" value="0" id='min_val'>
+        &nbsp;
+        <input type="number" name="max_val" min="0" max="10" step="0.5" value="10" id='max_val'>
+      </p>
+      <input type="button" id="add_points" value="Generate scenario" onclick="add_points()">
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xl-4">
+      <canvas id="canvas" width="500" height="500" style="border:1px solid #ccc"></canvas>
+      <div class="row">
+        <div class="col">
+          Kriging estimation: <lablel id='kriging_estimation'></label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          Kriging variance: <lablel id='kriging_variance'></label>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-8">
+      <div class="container2">
+        <div class="row">
+          <div class="col">
+            <!-- start accordion -->
+            <div class="accordion" id="accordionExample">
+              <div class="card">
+                <div class="card-header" id="headingVariogram">
+                  <h5 class="mb-0">
+                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                      Variogram model
+                    </button>
+                  </h5>
+                </div>
+                <div id="collapseOne" class="collapse show" aria-labelledby="headingVariogram" data-parent="#accordionExample">
+                  <div class="card-body" id="variogram_div">
+                    <div class="controls">
+                      <p>
+                        <label><span>Nugget effect:</span> <input type="number" name="vm_nugget" min="0" max="10" step="0.1" value="0.5" id='vm_nugget' onchange="update_all()">
+                      </p>
+                      <p>
+                        <label><span>Sill:</span> <input type="number" name="vm_sill" min="0" max="10" step="0.1" value="0.5" id='vm_sill' onchange="update_all()">
+                      </p>
+                      <p>
+                        <label><span>Range:</span> <input type="number" name="vm_range" min="0" max="600" step="10" value="100" id='vm_range' onchange="update_all()">
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-header" id="headingPoints">
+                  <h5 class="mb-0">
+                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapse2" aria-expanded="true" aria-controls="collapseOne">
+                      Samples information
+                    </button>
+                  </h5>
+                </div>
+                <div id="collapse2" class="collapse show" aria-labelledby="headingPoints" data-parent="#accordionExample">
+                  <div class="card-body" id="samples_div">
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-header" id="headingOne">
+                  <h5 class="mb-0">
+                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapse3" aria-expanded="false" aria-controls="collapseOne">
+                      Distance Matrix
+                    </button>
+                  </h5>
+                </div>
+                <div id="collapse3" class="collapse show" aria-labelledby="headingOne" data-parent="#accordionExample">
+                  <div class="card-body" id="distance_matrix_div">
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-header" id="headingTwo">
+                  <h5 class="mb-0">
+                    <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapse4" aria-expanded="false" aria-controls="collapseTwo">
+                      Covariance System (Ax=b)
+                    </button>
+                  </h5>
+                </div>
+                <div id="collapse4" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionExample">
+                  <div class="card-body"  id="cova_matrix_div">
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-header" id="headingThree">
+                  <h5 class="mb-0">
+                    <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapse5" aria-expanded="false" aria-controls="collapseThree">
+                      Kriging Weights
+                    </button>
+                  </h5>
+                </div>
+                <div id="collapse5" class="collapse" aria-labelledby="headingThree" data-parent="#accordionExample">
+                  <div class="card-body" id="weights_div">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- end accordion -->
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+</div>
+This demo runs in your browser locally. It uses the following technologies and libraries:
+<ul>
+  <li>HTML 5</li>
+  <li><a href='http://fabricjs.com/'>fabricjs</a></li>
+  <li><a href='https://getbootstrap.com/docs/3.3/javascript/'>Boostrap</a></li>
+  <li><a href='https://d3js.org'>D3</a></li>
+  <li><a href='https://jquery.com/'>jQuery</a></li>
+</ul>
+Contact me for any suggestion or comment to exequiel.sepulveda@gmail.com
+</body>
+</html>
